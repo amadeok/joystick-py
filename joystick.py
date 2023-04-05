@@ -1,11 +1,12 @@
 
 #from pyjoystick.sdl2 import Key, Joystick, run_event_loop
-import pygame
+import pygame, pyautogui
 import time, threading
 import pygetwindow as gw
+from pygame.locals import *
+from pynput.mouse import Listener
+#from pynput.keyboard import Key, Controller
 
-import pygame
-#import serial ### I do not have "serial" so I remove this
 import time,random
 pygame.display.init()
 pygame.joystick.init()
@@ -15,11 +16,15 @@ pygame.joystick.init()
 OFF = (0, "OFF")
 RESIZE = (1, "RESIZE")
 MOVE = (2, "MOVE")
+SCROLL = (3, "SCROLL")
 modes = [OFF, RESIZE, MOVE]
 
 mode = RESIZE
 mode_counter = RESIZE[0]
-
+middle_mouse_clicked = False
+pyautogui.PAUSE = 0.01
+#keyboard = Controller()
+whitelist = ["ldplayer"]
 def loop2(js):
     while 1:
         event = pygame.event.wait()
@@ -32,8 +37,64 @@ def loop2(js):
             js.init()
 
 
+def loop_3():
+    js = pygame.joystick.Joystick(0)
+    btn_s = 0
+    btn_t_a = [1,0]
+    double = False
+    global j_button_pressed
+    while True:
+        try:
+            event = pygame.event.wait()# pygame.event.get()
+            #for event in events:
+            if event.type == pygame.JOYBUTTONDOWN:
+                if js.get_button(0):
+                    j_button_pressed = 1
+                    btn_t_a[btn_s] = time.time()    
+                    btn_s = 1 - btn_s
+                d = btn_t_a[0] - btn_t_a[1]
+                if abs(d) < 0.5:
+                    j_button_pressed = 2
+                    print("double ", btn_t_a, d)
+
+            elif event.type == pygame.JOYBUTTONUP:
+                print("button released")
+                j_button_pressed =  0
+            elif event.type == pygame.JOYDEVICEREMOVED:
+                js.quit()
+                break
+
+            elif event.type == pygame.JOYDEVICEADDED:
+                js.init()
+
+            time.sleep(0.001)
+        except Exception as e:
+            print(e)
+            time.sleep(1)
+
+def on_move(x, y):
+    print(x, y)
+
+def on_click(x, y, button, pressed):
+    global middle_mouse_clicked; global mode
+    if button.name == "middle":
+            # if pressed:
+            #     mode = SCROLL
+            middle_mouse_clicked = pressed
+    print(x, y, button, pressed)
+
+
+def on_scroll(x, y, dx, dy):
+    print(x, y, dx, dy)
+
+def mouse_loop():
+    with Listener(on_click=on_click) as listener:
+        listener.join()
+
+
 def move_win(xaxis, yaxis):
-    n= 0; n2 = 0
+    global j_button_pressed
+    n= 0; n2 = 0; w = None
     if xaxis > 0.5:
         n = round((xaxis-0.5)*10)
     elif xaxis < -0.5:
@@ -50,27 +111,47 @@ def move_win(xaxis, yaxis):
     if abs(yaxis) > 0.95:
         n2 *= 2
 
-    w = gw.getActiveWindow()
-    if w and n or w and n2:
-        try:
-            if mode == RESIZE:
-                w.resize(n, n2)
-            elif mode == MOVE:
-                w.move(n, n2)
-        except Exception as e :
-            print(w.title , e)
-        print(w.title, n, xaxis, n2, yaxis)
+    try:
+        w = gw.getActiveWindow()
+        for elem in whitelist:
+            if  elem in  w.title.lower():
+                w = None
+                break
 
+        if w and n or w and n2:
+            
+            if j_button_pressed == 1:
+                w.move(n, n2)
+            elif j_button_pressed== 2:#middle_mouse_clicked:
+                #for x in range(abs(n)):
+                pyautogui.press("right" if n > 0 else "left")
+            #for x in range(abs(n2)):
+                pyautogui.press("up" if n2 < 0 else "down")
+            else:
+                w.resize(n, n2)
+
+            print(w.title, n, xaxis, n2, yaxis)
+    except Exception as e :
+        print(w.title if w else "" , e)
+
+t2 = threading.Thread(target=mouse_loop, args=() )
+t2.start()
+t2 = threading.Thread(target=loop_3, args=() )
+t2.start()
 
 def main_loop():
     print("new loop")
     slp = 0.01
     js = pygame.joystick.Joystick(0)
     
-    t = threading.Thread(target=loop2, args=(js,) )
-    t.start()
-
+    #t = threading.Thread(target=loop2, args=(js,) )
+    #t.start()
+    global j_button_pressed
+    j_button_pressed = 0
     while 1:
+        global mode
+        global mode_counter
+        
         if slp > 4:
             print(slp)
         time.sleep(slp)
@@ -84,21 +165,21 @@ def main_loop():
         try:
             xaxis = js.get_axis(0)
             yaxis = js.get_axis(1)
-            button = js.get_button(0)
+            #j_button_pressed = js.get_button(0)
+
         except Exception as e:
             print(e)
             time.sleep(0.5)
             #js.init()
             continue
-        if button:
-            mode_counter+=1
-            if mode_counter > 2:
-                mode_counter = 0
-            mode = modes[mode_counter]
-            print("current mode: ", mode[1])
-
-
-            time.sleep(0.1)
+        # if button and mode != MOVE:
+        #     mode = MOVE
+        #     # mode_counter+=1
+        #     # if mode_counter > 2:
+        #     #     mode_counter = 0
+        #     # mode = modes[mode_counter]
+        #     # print("current mode: ", mode[1])
+        #     time.sleep(0.1)
 
         #print("row 38 takes: {0} seconds".format( time.time() - timer ))
         #print("xaxis is: {0} {1}".format(xaxis, yaxis))
