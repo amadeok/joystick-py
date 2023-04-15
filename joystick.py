@@ -62,6 +62,8 @@ def loop_3():
                 j_button_pressed =  0
             elif event.type == pygame.JOYDEVICEREMOVED:
                 js.quit()
+                print("loop3 break")
+
                 break
 
             elif event.type == pygame.JOYDEVICEADDED:
@@ -71,6 +73,7 @@ def loop_3():
         except Exception as e:
             print(e)
             time.sleep(1)
+    print("loop3 ended")
 
 def on_move(x, y):
     print(x, y)
@@ -124,9 +127,13 @@ def move_win(xaxis, yaxis):
                 w.move(n, n2)
             elif j_button_pressed== 2:#middle_mouse_clicked:
                 #for x in range(abs(n)):
-                pyautogui.press("right" if n > 0 else "left")
+                if n != 0:
+                    #pyautogui.hscroll(n*3) 
+                    pyautogui.press("right" if n > 0 else "left")
             #for x in range(abs(n2)):
-                pyautogui.press("up" if n2 < 0 else "down")
+                if n2 != 0:
+                    pyautogui.scroll(-n2*3) 
+                #pyautogui.press("up" if n2 < 0 else "down")
             else:
                 w.resize(n, n2)
 
@@ -134,10 +141,9 @@ def move_win(xaxis, yaxis):
     except Exception as e :
         print(w.title if w else "" , e)
 
-t2 = threading.Thread(target=mouse_loop, args=() )
-t2.start()
-t2 = threading.Thread(target=loop_3, args=() )
-t2.start()
+#t2 = threading.Thread(target=mouse_loop, args=() )
+#t2.start()
+
 
 def main_loop():
     print("new loop")
@@ -215,6 +221,8 @@ while True:
         
         time.sleep(1)
         print("no joysticks..")
+    t2 = threading.Thread(target=loop_3, args=() )
+    t2.start()
     t = threading.Thread(target=main_loop, )
     t.start()
     t.join()
